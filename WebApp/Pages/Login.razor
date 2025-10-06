@@ -1,0 +1,34 @@
+﻿@using Application.Contracts.DTOs
+@using Application.Contracts.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@using WebApp.Services
+
+@inject HttpClient Http
+@inject ITokenService TokenService
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+
+<EditForm Model="_model" OnValidSubmit="OnLoginAsync">
+    <InputText @bind-Value="_model.Email" />
+    <InputText @bind-Value="_model.Password" type="password" />
+    <button type="submit">Login</button>
+</EditForm>
+
+@code {
+    private LoginRequest _model = new();
+    private async Task OnLoginAsync()
+    {
+        var resp = await Http.PostAsJsonAsync("api/account/login", _model);
+        if (resp.IsSuccessStatusCode)
+        {
+            var auth = await resp.Content.ReadFromJsonAsync<AuthResponse>();
+            await TokenService.SetTokenAsync(auth!.Token);
+            ((JwtAuthStateProvider)AuthStateProvider).NotifyAuthStateChanged();
+            Nav.NavigateTo("/");
+        }
+        else
+        {
+            // show error
+        }
+    }
+}

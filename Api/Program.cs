@@ -1,10 +1,15 @@
-﻿using Infrastructure.Data;
+﻿using Application.Contracts.Services;
+using Blazored.LocalStorage;
+using Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using Ui.Shared.Services;
+using WebApp.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -75,6 +80,21 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
 });
+
+builder.Services.AddBlazoredLocalStorage();
+builder.Services.AddScoped<ITokenService, LocalTokenService>();
+builder.Services.AddScoped<AuthenticationStateProvider, JwtAuthStateProvider>();
+builder.Services.AddAuthorizationCore();
+builder.Services.AddTransient<JwtAuthorizationHandler>();
+
+builder.Services.AddHttpClient("ApiClient", client =>
+{
+    client.BaseAddress = new Uri("https://localhost:5001/"); // Api URL
+}).AddHttpMessageHandler<JwtAuthorizationHandler>();
+
+// convenience typed client
+builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("ApiClient"));
+
 
 
 // Allow CORS for development
