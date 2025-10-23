@@ -1,42 +1,41 @@
-﻿using Application.Contracts.Services;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.DependencyInjection;
-using System.Net.Http;
-using MobileApp.Services;
+﻿using Microsoft.Extensions.Logging;
 using Ui.Shared.Services;
+using Application.Contracts.Services;
+using MobileApp.Services;
 
 namespace MobileApp;
 
 public static class MauiProgram
 {
-	public static MauiApp CreateMauiApp()
-	{
-		var builder = MauiApp.CreateBuilder();
-		builder
-			.UseMauiApp<App>()
-			.ConfigureFonts(fonts =>
-			{
-				fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-			});
+    public static MauiApp CreateMauiApp()
+    {
+        var builder = MauiApp.CreateBuilder();
 
-		builder.Services.AddMauiBlazorWebView();
+        builder
+            .UseMauiApp<App>()
+            .ConfigureFonts(fonts =>
+            {
+                fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
+            });
 
+        // Register Token Service (Secure Storage)
         builder.Services.AddSingleton<ITokenService, SecureTokenService>();
-        builder.Services.AddTransient<JwtAuthorizationHandler>();
 
-        builder.Services.AddHttpClient("ApiClient", c =>
+        // Register HttpClientFactory + JWT Handler
+        builder.Services.AddTransient<JwtAuthorizationHandler>();
+        builder.Services.AddHttpClient("ApiClient", client =>
         {
-            c.BaseAddress = new Uri("http://<your-pc-lan-ip>:5000/");
+            client.BaseAddress = new Uri("http://localhost:5239/");
         }).AddHttpMessageHandler<JwtAuthorizationHandler>();
 
-        builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("ApiClient"));
-
+        // Scoped HttpClient using factory
+        builder.Services.AddScoped(sp =>
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient("ApiClient"));
 
 #if DEBUG
-        builder.Services.AddBlazorWebViewDeveloperTools();
-		builder.Logging.AddDebug();
+        builder.Logging.AddDebug();
 #endif
 
-		return builder.Build();
-	}
+        return builder.Build();
+    }
 }

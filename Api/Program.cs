@@ -1,19 +1,14 @@
-﻿using Application.Contracts.Services;
-using Blazored.LocalStorage;
-using Infrastructure.Data;
+﻿using Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
-using Ui.Shared.Services;
-using WebApp.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure DbContext (use SQL Server in production)
+// DbContext
 builder.Services.AddDbContext<AppIdentityDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -22,7 +17,7 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>()
     .AddEntityFrameworkStores<AppIdentityDbContext>()
     .AddDefaultTokenProviders();
 
-// JWT setup
+// JWT
 var jwtCfg = builder.Configuration.GetSection("Jwt");
 var key = Encoding.UTF8.GetBytes(jwtCfg["Key"]);
 
@@ -33,38 +28,36 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.RequireHttpsMetadata = false; // dev only, enable in prod
+    options.RequireHttpsMetadata = false;
     options.SaveToken = true;
-    options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+    options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(key),
-        ValidateIssuer = false, // or true & set ValidIssuer
-        ValidateAudience = false, // or true & set ValidAudience
+        ValidateIssuer = false,
+        ValidateAudience = false,
         ClockSkew = TimeSpan.Zero
     };
 });
 
 builder.Services.AddAuthorization();
-builder.Services.AddControllers(); // we'll use controllers for account
+builder.Services.AddControllers();
 
+// Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "ProgramSuite API",
-        Version = "v1",
-        Description = "API for ProgramSuite Web & Mobile apps"
+        Version = "v1"
     });
 
-    // ✅ Add JWT Bearer Authorization support in Swagger
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
         Type = SecuritySchemeType.ApiKey,
         Scheme = "Bearer",
-        BearerFormat = "JWT",
         In = ParameterLocation.Header,
         Description = "Enter 'Bearer <your_token>'"
     });
@@ -81,47 +74,21 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-builder.Services.AddBlazoredLocalStorage();
-builder.Services.AddScoped<ITokenService, LocalTokenService>();
-builder.Services.AddScoped<AuthenticationStateProvider, JwtAuthStateProvider>();
-builder.Services.AddAuthorizationCore();
-builder.Services.AddTransient<JwtAuthorizationHandler>();
-
-builder.Services.AddHttpClient("ApiClient", client =>
-{
-    client.BaseAddress = new Uri("https://localhost:5001/"); // Api URL
-}).AddHttpMessageHandler<JwtAuthorizationHandler>();
-
-// convenience typed client
-builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("ApiClient"));
-
-
-
-// Allow CORS for development
-builder.Services.AddCors(o => o.AddPolicy("DevCors", b => b.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin()));
-
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+// CORS
+builder.Services.AddCors(o =>
+    o.AddPolicy("DevCors", b => b.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin()));
 
 var app = builder.Build();
 
-
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
-
-app.UseSwagger();
-app.UseSwaggerUI();
 app.UseCors("DevCors");
-
 app.UseHttpsRedirection();
-
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();
